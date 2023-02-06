@@ -9,24 +9,20 @@
 #include "virtual-audio.h"
 #include "clock.h"
 
-CUnknown * WINAPI CVAudio::CreateInstance(LPUNKNOWN lpunk, HRESULT *phr)
-{
+CUnknown * WINAPI CVAudio::CreateInstance(LPUNKNOWN lpunk, HRESULT *phr){
 	ASSERT(phr);
 	CUnknown *punk = new CVAudio(lpunk, phr);
 	return punk;
 }
 
-CVAudio::CVAudio(LPUNKNOWN lpunk, HRESULT *phr) : 
-CSource(NAME("OBS Virtual Audio"), lpunk, CLSID_OBS_VirtualA)
-{
+CVAudio::CVAudio(LPUNKNOWN lpunk, HRESULT *phr) : CSource(NAME("OBS Virtual Audio"), lpunk, CLSID_OBS_VirtualA){
 	ASSERT(phr);
 	CAutoLock cAutoLock(&m_cStateLock);
 	m_paStreams = (CSourceStream **) new CVAudioStream*[1];
 	m_paStreams[0] = new CVAudioStream(phr, this, L"Audio");
 }
 
-HRESULT CVAudio::NonDelegatingQueryInterface(REFIID riid, void **ppv)
-{
+HRESULT CVAudio::NonDelegatingQueryInterface(REFIID riid, void **ppv){
 	if (riid == _uuidof(IAMStreamConfig) || riid == _uuidof(IKsPropertySet))
 		return m_paStreams[0]->QueryInterface(riid, ppv);
 	else if (riid == IID_IAMFilterMiscFlags)
@@ -35,10 +31,7 @@ HRESULT CVAudio::NonDelegatingQueryInterface(REFIID riid, void **ppv)
 		return CSource::NonDelegatingQueryInterface(riid, ppv);
 }
 
-CVAudioStream::CVAudioStream(HRESULT *phr, CVAudio *pParent, LPCWSTR pPinName) :
-CSourceStream(NAME("Audio"), phr, pParent, pPinName), parent(pParent)
-{
-
+CVAudioStream::CVAudioStream(HRESULT *phr, CVAudio *pParent, LPCWSTR pPinName) : CSourceStream(NAME("Audio"), phr, pParent, pPinName), parent(pParent){
 	alloc_prop.cBuffers = alloc_prop.cbBuffer = -1;
 	alloc_prop.cbAlign = alloc_prop.cbPrefix = -1;
 	GetMediaType(&m_mt);
@@ -48,14 +41,12 @@ CVAudioStream::~CVAudioStream()
 {
 }
 
-HRESULT CVAudioStream::ChangeMediaType(int nMediatype)
-{
+HRESULT CVAudioStream::ChangeMediaType(int nMediatype){
 	GetMediaType(&m_mt);
 	return S_OK;
 }
 
-HRESULT CVAudioStream::QueryInterface(REFIID riid, void **ppv)
-{
+HRESULT CVAudioStream::QueryInterface(REFIID riid, void **ppv){
 	if (riid == _uuidof(IAMStreamConfig))
 		*ppv = (IAMStreamConfig*)this;
 	else if (riid == _uuidof(IKsPropertySet))
@@ -68,8 +59,7 @@ HRESULT CVAudioStream::QueryInterface(REFIID riid, void **ppv)
 	return S_OK;
 }
 
-void CVAudioStream::SetTimeout()
-{
+void CVAudioStream::SetTimeout(){
 	if (queue.header) {
 		sync_timeout = queue.header->queue_length * AUDIO_SIZE * 10000000 / 44100 * 4;
 	}
@@ -79,8 +69,7 @@ void CVAudioStream::SetTimeout()
 }
 
 
-HRESULT CVAudioStream::FillBuffer(IMediaSample *pms)
-{
+HRESULT CVAudioStream::FillBuffer(IMediaSample *pms){
 	HRESULT hr;
 	bool get_sample = false;
 	uint8_t* dst;
@@ -91,14 +80,13 @@ HRESULT CVAudioStream::FillBuffer(IMediaSample *pms)
 	REFERENCE_TIME start_time = 0;
 	REFERENCE_TIME end_time = 0;
 
-
 	hr = pms->GetPointer((BYTE**)&dst);
 
 	if (system_start_time <= 0) {
 		system_start_time = get_current_time();
-	}
-	else
+	} else{
 		current_time = get_current_time(system_start_time);
+	}
 
 	if (!queue.hwnd)
 		shared_queue_open(&queue, ModeAudio);
@@ -178,9 +166,7 @@ HRESULT CVAudioStream::Pause()
 
 HRESULT CVAudioStream::SetMediaType(const CMediaType *pmt)
 {
-
 	DECLARE_PTR(WAVEFORMATEX, paf, pmt->Format());
-
 	HRESULT hr = CSourceStream::SetMediaType(pmt);
 	return hr;
 }
@@ -199,16 +185,15 @@ HRESULT CVAudioStream::GetMediaType(CMediaType *pmt)
 	paf->wFormatTag = WAVE_FORMAT_PCM;
 
 	HRESULT hr = ::CreateAudioMediaType(paf, pmt, FALSE);
-
 	return hr;
-} 
+}
 
 HRESULT CVAudioStream::CheckMediaType(const CMediaType *pMediaType)
 {
 	WAVEFORMATEX *paf = (WAVEFORMATEX *)(pMediaType->Format());
-	if (*pMediaType != m_mt)
+	if (*pMediaType != m_mt) {
 		return E_INVALIDARG;
-
+	}
 	return S_OK;
 }
 
@@ -240,14 +225,16 @@ HRESULT CVAudioStream::DecideBufferSize(IMemAllocator *pAlloc, ALLOCATOR_PROPERT
 
 		ALLOCATOR_PROPERTIES Actual;
 		hr = pAlloc->SetProperties(pProperties, &Actual);
-		if (SUCCEEDED(hr))
-			if (Actual.cbBuffer < pProperties->cbBuffer)
-				hr = E_FAIL;	
+		if (SUCCEEDED(hr)) {
+			if (Actual.cbBuffer < pProperties->cbBuffer) {
+				hr = E_FAIL;
+			}
+		}
 	} else {
 		hr = E_POINTER;
 	}
 	return hr;
-} 
+}
 
 HRESULT CVAudioStream::OnThreadCreate()
 {
@@ -256,7 +243,7 @@ HRESULT CVAudioStream::OnThreadCreate()
 	prev_end_ts = 0;
 	system_start_time = 0;
 	return NOERROR;
-} 
+}
 
 HRESULT CVAudioStream::OnThreadDestroy()
 {
@@ -329,13 +316,15 @@ STDMETHODIMP CVAudioStream::SuggestAllocatorProperties(const ALLOCATOR_PROPERTIE
 {
 	HRESULT hr = S_OK;
 	if (pprop) {
-		if (IsConnected())
+		if (IsConnected()){
 			hr = VFW_E_ALREADY_CONNECTED;
-		else
+		}
+		else{
 			alloc_prop = *pprop;
-	} else
+		}
+	} else{
 		hr = E_POINTER;
-	
+	}
 	return hr;
 }
 
@@ -353,14 +342,12 @@ STDMETHODIMP CVAudioStream::GetAllocatorProperties(ALLOCATOR_PROPERTIES* pprop)
 	return hr;
 }
 
-HRESULT CVAudioStream::Set(REFGUID guidPropSet, DWORD dwID, void *pInstanceData,
-	DWORD cbInstanceData, void *pPropData, DWORD cbPropData)
-{
+HRESULT CVAudioStream::Set(REFGUID guidPropSet, DWORD dwID, void *pInstanceData, DWORD cbInstanceData, void *pPropData, DWORD cbPropData){
 	return E_NOTIMPL;
 }
 
 HRESULT CVAudioStream::Get(REFGUID guidPropSet,DWORD dwPropID,
-	void *pInstanceData,DWORD cbInstanceData, void *pPropData,       
+	void *pInstanceData,DWORD cbInstanceData, void *pPropData,
 	DWORD cbPropData,DWORD *pcbReturned)
 {
 	if (guidPropSet != AMPROPSETID_Pin)             return E_PROP_SET_UNSUPPORTED;
@@ -368,7 +355,7 @@ HRESULT CVAudioStream::Get(REFGUID guidPropSet,DWORD dwPropID,
 	if (pPropData == NULL && pcbReturned == NULL)   return E_POINTER;
 
 	if (pcbReturned) *pcbReturned = sizeof(GUID);
-	if (pPropData == NULL)          return S_OK; 
+	if (pPropData == NULL)          return S_OK;
 	if (cbPropData < sizeof(GUID))  return E_UNEXPECTED;
 
 	*(GUID *)pPropData = PIN_CATEGORY_CAPTURE;

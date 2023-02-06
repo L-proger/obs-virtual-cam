@@ -7,8 +7,8 @@ bool init_flip_filter(FlipContext* ctx,int width, int height, int format)
 
 	if (ctx->init)
 		return false;
-
-	avfilter_register_all();
+	//av_register_all();
+	//avfilter_register_all();
 
 	const AVFilter *buffersrc = avfilter_get_by_name("buffer");
 	const AVFilter *buffersink = avfilter_get_by_name("buffersink");

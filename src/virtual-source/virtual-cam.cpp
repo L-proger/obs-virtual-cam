@@ -157,16 +157,16 @@ HRESULT CVCamStream::FillBuffer(IMediaSample *pms)
 
 	hr = pms->GetPointer((BYTE**)&dst);
 
-	if (system_start_time <= 0) 
+	if (system_start_time <= 0) {
 		system_start_time = get_current_time();
-	else 
+	}
+	else {
 		current_time = get_current_time(system_start_time);
-	
+	}
 
 	if (!queue.hwnd) {
 		if (shared_queue_open(&queue, queue_mode)) {
-			shared_queue_get_video_format(queue_mode, &format, &frame_width,
-				&frame_height, &time_perframe);
+			shared_queue_get_video_format(queue_mode, &format, &frame_width, &frame_height, &time_perframe);
 			SetConvertContext();
 			SetGetTimeout();
 			sync_timeout = 0;
@@ -180,26 +180,32 @@ HRESULT CVCamStream::FillBuffer(IMediaSample *pms)
 		sleepto(prev_end_ts, system_start_time);
 	}
 	else if (current_time - prev_end_ts > sync_timeout) {
-		if(queue.header) 
+		if (queue.header) {
 			share_queue_init_index(&queue);
-		else
+		}
+		else {
 			prev_end_ts = current_time;
+		}
 	}
 
 	while (queue.header && !get_sample) {
 
-		if (get_times >= get_timeout || queue.header->state != OutputReady)
+		if (get_times >= get_timeout) { 
 			break;
+		}
 
-		get_sample = shared_queue_get_video(&queue, &scale_info, dst, 
-			&timestamp);
+		if (queue.header->state != OutputReady) {
+			break;
+		}
+
+		get_sample = shared_queue_get_video(&queue, &scale_info, dst, &timestamp);
 
 		if (!get_sample) {
 			Sleep(SLEEP_DURATION);
 			get_times++;
 		}
 	}
-	
+
 	if (get_sample && !obs_start_ts) {
 		obs_start_ts = timestamp;
 		dshow_start_ts = prev_end_ts;
@@ -223,7 +229,9 @@ HRESULT CVCamStream::FillBuffer(IMediaSample *pms)
 	}
 
 	end_time = start_time + duration;
+
 	prev_end_ts = end_time;
+
 	pms->SetTime(&start_time, &end_time);
 	pms->SetSyncPoint(TRUE);
 
@@ -238,11 +246,13 @@ STDMETHODIMP CVCamStream::Notify(IBaseFilter * pSender, Quality q)
 bool CVCamStream::ListSupportFormat()
 {
 	if (format_list.size() > 0)
-		format_list.empty();
-	
+		format_list.clear();
+
 	format_list.push_back(struct format(1920, 1080, 333333));
 	format_list.push_back(struct format(1280, 720, 333333));
 	format_list.push_back(struct format(960, 540, 333333));
+	format_list.push_back(struct format(854, 480, 333333));
+	format_list.push_back(struct format(640, 480, 333333));
 	format_list.push_back(struct format(640, 360, 333333));
 
 	return true;
@@ -260,13 +270,13 @@ HRESULT CVCamStream::GetMediaType(int iPosition,CMediaType *pmt)
 	if (format_list.size() == 0)
 		ListSupportFormat();
 
-	if (iPosition < 0 || iPosition > format_list.size()-1)
+	if (iPosition < 0 || iPosition > format_list.size() - 1) {
 		return E_INVALIDARG;
+	}
 
 	DECLARE_PTR(VIDEOINFOHEADER, pvi, 
 	pmt->AllocFormatBuffer(sizeof(VIDEOINFOHEADER)));
 	ZeroMemory(pvi, sizeof(VIDEOINFOHEADER));
-
 
 	pvi->bmiHeader.biWidth = format_list[iPosition].width;
 	pvi->bmiHeader.biHeight = format_list[iPosition].height;
@@ -275,12 +285,11 @@ HRESULT CVCamStream::GetMediaType(int iPosition,CMediaType *pmt)
 	pvi->bmiHeader.biBitCount = 16;
 	pvi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 	pvi->bmiHeader.biPlanes = 1;
-	pvi->bmiHeader.biSizeImage = pvi->bmiHeader.biWidth * 
-		pvi->bmiHeader.biHeight * 2;
+	pvi->bmiHeader.biSizeImage = pvi->bmiHeader.biWidth * pvi->bmiHeader.biHeight * 2;
 	pvi->bmiHeader.biClrImportant = 0;
 
-	SetRectEmpty(&(pvi->rcSource)); 
-	SetRectEmpty(&(pvi->rcTarget)); 
+	SetRectEmpty(&(pvi->rcSource));
+	SetRectEmpty(&(pvi->rcTarget));
 
 	pmt->SetType(&MEDIATYPE_Video);
 	pmt->SetFormatType(&FORMAT_VideoInfo);
@@ -293,8 +302,9 @@ HRESULT CVCamStream::GetMediaType(int iPosition,CMediaType *pmt)
 
 HRESULT CVCamStream::CheckMediaType(const CMediaType *pMediaType)
 {
-	if (pMediaType == nullptr)
+	if (pMediaType == nullptr) {
 		return E_FAIL;
+	}
 
 	VIDEOINFOHEADER *pvi = (VIDEOINFOHEADER *)(pMediaType->Format());
 
@@ -302,43 +312,52 @@ HRESULT CVCamStream::CheckMediaType(const CMediaType *pMediaType)
 	const GUID* info = pMediaType->FormatType();
 	const GUID* subtype = pMediaType->Subtype();
 
-	if (*type != MEDIATYPE_Video)
+	if (*type != MEDIATYPE_Video) {
 		return E_INVALIDARG;
+	}
 
-	if (*info != FORMAT_VideoInfo)
+	if (*info != FORMAT_VideoInfo) {
 		return E_INVALIDARG;
+	}
 
-	if (*subtype != MEDIASUBTYPE_YUY2)
+	if (*subtype != MEDIASUBTYPE_YUY2) {
 		return E_INVALIDARG;
+	}
 
-	if (pvi->AvgTimePerFrame < 166666 || pvi->AvgTimePerFrame >1000000)
+	if (pvi->AvgTimePerFrame < 166666 || pvi->AvgTimePerFrame >1000000) {
 		return E_INVALIDARG;
+	}
 
-	if (ValidateResolution(pvi->bmiHeader.biWidth, pvi->bmiHeader.biHeight))
+	if (ValidateResolution(pvi->bmiHeader.biWidth, pvi->bmiHeader.biHeight)) {
 		return S_OK;
+	}
 
 	return E_INVALIDARG;
-} 
+}
 
 bool CVCamStream::ValidateResolution(long width,long height)
 {
-	if (width < 320 || height < 240)
+	if (width < 320 || height < 240) {
 		return false;
-	else if (width > 4096)
+	}
+	else if (width > 4096) {
 		return false;
-	else if (width * 9 == height * 16)
+	}
+	else if (width * 9 == height * 16) {
 		return true;
-	else if (width * 3 == height * 4)
+	}
+	else if (width * 3 == height * 4) {
 		return true;
-	else if (use_obs_format_init && width == obs_width && height == obs_height)
+	}
+	else if (use_obs_format_init && width == obs_width && height == obs_height) {
 		return true;
-	else
+	}
+	else {
 		return false;
+	}
 }
 
-HRESULT CVCamStream::DecideBufferSize(IMemAllocator *pAlloc, 
-	ALLOCATOR_PROPERTIES *pProperties)
-{
+HRESULT CVCamStream::DecideBufferSize(IMemAllocator *pAlloc, ALLOCATOR_PROPERTIES *pProperties){
 	CAutoLock cAutoLock(m_pFilter->pStateLock());
 	HRESULT hr = NOERROR;
 
@@ -349,11 +368,14 @@ HRESULT CVCamStream::DecideBufferSize(IMemAllocator *pAlloc,
 	ALLOCATOR_PROPERTIES Actual;
 	hr = pAlloc->SetProperties(pProperties, &Actual);
 
-	if (FAILED(hr)) return hr;
-	if (Actual.cbBuffer < pProperties->cbBuffer) return E_FAIL;
-
+	if (FAILED(hr)) {
+		return hr;
+	}
+	if (Actual.cbBuffer < pProperties->cbBuffer) {
+		return E_FAIL;
+	}
 	return NOERROR;
-} 
+}
 
 HRESULT CVCamStream::OnThreadCreate()
 {
@@ -368,20 +390,22 @@ HRESULT CVCamStream::OnThreadDestroy()
 {
 	if (queue.header) 
 		shared_queue_read_close(&queue, &scale_info);
-
 	return NOERROR;
 }
 
 HRESULT STDMETHODCALLTYPE CVCamStream::SetFormat(AM_MEDIA_TYPE *pmt)
 {
-	if (pmt == nullptr)
+	if (pmt == nullptr) {
 		return E_FAIL;
+	}
 
-	if (parent->GetState() != State_Stopped)
+	if (parent->GetState() != State_Stopped) {
 		return E_FAIL;
+	}
 
-	if (CheckMediaType((CMediaType *)pmt) != S_OK)
+	if (CheckMediaType((CMediaType*)pmt) != S_OK) {
 		return E_FAIL;
+	}
 
 	VIDEOINFOHEADER *pvi = (VIDEOINFOHEADER *)(pmt->pbFormat);
 
@@ -409,7 +433,6 @@ HRESULT STDMETHODCALLTYPE CVCamStream::GetNumberOfCapabilities(int *piCount,
 {
 	if (format_list.size() == 0)
 		ListSupportFormat();
-	
 	*piCount = format_list.size();
 	*piSize = sizeof(VIDEO_STREAM_CONFIG_CAPS);
 	return S_OK;
@@ -421,8 +444,9 @@ HRESULT STDMETHODCALLTYPE CVCamStream::GetStreamCaps(int iIndex,
 	if (format_list.size() == 0)
 		ListSupportFormat();
 
-	if (iIndex < 0 || iIndex > format_list.size() - 1)
+	if (iIndex < 0 || iIndex > format_list.size() - 1) {
 		return E_INVALIDARG;
+	}
 
 	*pmt = CreateMediaType(&m_mt);
 	DECLARE_PTR(VIDEOINFOHEADER, pvi, (*pmt)->pbFormat);
@@ -436,8 +460,7 @@ HRESULT STDMETHODCALLTYPE CVCamStream::GetStreamCaps(int iIndex,
 	pvi->bmiHeader.biBitCount = 16;
 	pvi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 	pvi->bmiHeader.biPlanes = 1;
-	pvi->bmiHeader.biSizeImage = pvi->bmiHeader.biWidth * 
-		pvi->bmiHeader.biHeight * 2;
+	pvi->bmiHeader.biSizeImage = pvi->bmiHeader.biWidth * pvi->bmiHeader.biHeight * 2;
 	pvi->bmiHeader.biClrImportant = 0;
 
 	SetRectEmpty(&(pvi->rcSource)); 
@@ -476,18 +499,15 @@ HRESULT STDMETHODCALLTYPE CVCamStream::GetStreamCaps(int iIndex,
 	pvscc->StretchTapsY = 0;
 	pvscc->ShrinkTapsX = 0;
 	pvscc->ShrinkTapsY = 0;
-	pvscc->MinFrameInterval = pvi->AvgTimePerFrame;   
-	pvscc->MaxFrameInterval = pvi->AvgTimePerFrame; 
-	pvscc->MinBitsPerSecond = pvi->bmiHeader.biWidth * pvi->bmiHeader.biHeight 
-		* 2 * 8 * (10000000 / pvi->AvgTimePerFrame);
-	pvscc->MaxBitsPerSecond = pvi->bmiHeader.biWidth * pvi->bmiHeader.biHeight 
-		* 2 * 8 * (10000000 / pvi->AvgTimePerFrame);
+	pvscc->MinFrameInterval = pvi->AvgTimePerFrame; 
+	pvscc->MaxFrameInterval = pvi->AvgTimePerFrame;
+	pvscc->MinBitsPerSecond = pvi->bmiHeader.biWidth * pvi->bmiHeader.biHeight * 2 * 8 * (10000000 / pvi->AvgTimePerFrame);
+	pvscc->MaxBitsPerSecond = pvi->bmiHeader.biWidth * pvi->bmiHeader.biHeight * 2 * 8 * (10000000 / pvi->AvgTimePerFrame);
 
 	return S_OK;
 }
 
-HRESULT CVCamStream::Set(REFGUID guidPropSet, DWORD dwID, void *pInstanceData,
-	DWORD cbInstanceData, void *pPropData, DWORD cbPropData)
+HRESULT CVCamStream::Set(REFGUID guidPropSet, DWORD dwID, void *pInstanceData,DWORD cbInstanceData, void *pPropData, DWORD cbPropData)
 {
 	return E_NOTIMPL;
 }
@@ -496,13 +516,29 @@ HRESULT CVCamStream::Get(REFGUID guidPropSet,DWORD dwPropID,
 	void *pInstanceData,DWORD cbInstanceData,void *pPropData,
 	DWORD cbPropData,DWORD *pcbReturned)
 {
-	if (guidPropSet != AMPROPSETID_Pin)             return E_PROP_SET_UNSUPPORTED;
-	if (dwPropID != AMPROPERTY_PIN_CATEGORY)        return E_PROP_ID_UNSUPPORTED;
-	if (pPropData == NULL && pcbReturned == NULL)   return E_POINTER;
+	if (guidPropSet != AMPROPSETID_Pin) {
+		return E_PROP_SET_UNSUPPORTED;
+	}
 
-	if (pcbReturned) *pcbReturned = sizeof(GUID);
-	if (pPropData == NULL)          return S_OK; 
-	if (cbPropData < sizeof(GUID))  return E_UNEXPECTED;
+	if (dwPropID != AMPROPERTY_PIN_CATEGORY) {
+		return E_PROP_ID_UNSUPPORTED;
+	}
+
+	if (pPropData == NULL && pcbReturned == NULL) {
+		return E_POINTER;
+	}
+
+	if (pcbReturned) {
+		*pcbReturned = sizeof(GUID);
+	}
+
+	if (pPropData == NULL) {
+		return S_OK;
+	}
+
+	if (cbPropData < sizeof(GUID)) {
+		return E_UNEXPECTED;
+	}
 
 	*(GUID *)pPropData = PIN_CATEGORY_CAPTURE;
 	return S_OK;
@@ -511,9 +547,16 @@ HRESULT CVCamStream::Get(REFGUID guidPropSet,DWORD dwPropID,
 HRESULT CVCamStream::QuerySupported(REFGUID guidPropSet, DWORD dwPropID, 
 	DWORD *pTypeSupport)
 {
-	if (guidPropSet != AMPROPSETID_Pin) return E_PROP_SET_UNSUPPORTED;
-	if (dwPropID != AMPROPERTY_PIN_CATEGORY) return E_PROP_ID_UNSUPPORTED;
-	if (pTypeSupport) *pTypeSupport = KSPROPERTY_SUPPORT_GET;
+	if (guidPropSet != AMPROPSETID_Pin) {
+		return E_PROP_SET_UNSUPPORTED;
+	}
+
+	if (dwPropID != AMPROPERTY_PIN_CATEGORY) {
+		return E_PROP_ID_UNSUPPORTED;
+	}
+
+	if (pTypeSupport)
+		*pTypeSupport = KSPROPERTY_SUPPORT_GET;
 	return S_OK;
 }
 

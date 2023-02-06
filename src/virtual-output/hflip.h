@@ -1,11 +1,16 @@
 extern "C"
 {
 #include "stdint.h"
-#include "libavfilter/buffersink.h"  
-#include "libavfilter/buffersrc.h"  
-#include "libavutil/avutil.h"  
-#include "libavutil/imgutils.h" 
-#include "libavformat/avformat.h"
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
+#include <libavutil/avutil.h>
+#include <libavutil/imgutils.h>
+#include <libavformat/avformat.h>
+
+#include <libavcodec/avcodec.h> 
+
+#include "libavfilter/avfilter.h"  
+
 };
 
 struct FlipContext {

@@ -34,4 +34,5 @@ bool sleepto(uint64_t time_target, uint64_t start_time)
 	milliseconds = (uint32_t)((time_target - t) / 10000);
 	if (milliseconds > 10)
 		Sleep(milliseconds - 1);
+	return true;
 }
